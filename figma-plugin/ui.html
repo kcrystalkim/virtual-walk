@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Token Checker</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --bg-surface: #1a1a1a;
+      --bg-elevated: #222222;
+      --border: #2e2e2e;
+      --border-subtle: #252525;
+      --text: #f0f0f0;
+      --text-muted: #888;
+      --text-dim: #555;
+      --accent: #4a7cff;
+      --accent-hover: #3d6ef0;
+      --danger: #ff4d4d;
+      --success: #3ecf6e;
+      --warning: #f5a623;
+      --radius: 3px;
+    }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 11px;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    .shell {
+      display: flex;
+      flex-direction: column;
+      height: 580px;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .logo-icon {
+      width: 18px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg { width: 10px; height: 10px; }
+
+    .logo-name {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+
+    .badge {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      padding: 2px 5px;
+      border-radius: 2px;
+    }
+
+    /* ── Token Config ── */
+    .token-section {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .section-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .token-editor {
+      position: relative;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 10px;
+      line-height: 1.5;
+      padding: 7px 8px;
+      resize: vertical;
+      min-height: 70px;
+      max-height: 120px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    textarea:focus { border-color: var(--accent); }
+
+    .token-error {
+      font-size: 9px;
+      color: var(--danger);
+      margin-top: 4px;
+      display: none;
+    }
+
+    .token-error.visible { display: block; }
+
+    /* ── Actions ── */
+    .actions {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .btn-scan {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s, transform 0.08s;
+    }
+
+    .btn-scan:hover { background: var(--accent-hover); }
+    .btn-scan:active { transform: scale(0.99); }
+    .btn-scan:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-scan .spinner {
+      width: 11px;
+      height: 11px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .btn-scan.loading .spinner { display: block; }
+    .btn-scan.loading .btn-label { opacity: 0.8; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results ── */
+    .results-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .results-area::-webkit-scrollbar { width: 4px; }
+    .results-area::-webkit-scrollbar-track { background: transparent; }
+    .results-area::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    /* ── Empty / Error State ── */
+    .state-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 180px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    .state-box .icon { font-size: 24px; line-height: 1; }
+    .state-box .title { font-size: 11px; color: var(--text-muted); }
+    .state-box .sub { font-size: 10px; }
+
+    .state-box.error .title { color: var(--danger); }
+    .state-box.success .title { color: var(--success); }
+
+    /* ── Summary bar ── */
+    .summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      flex-shrink: 0;
+    }
+
+    .summary-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-num {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-num.danger { color: var(--danger); }
+    .stat-num.muted { color: var(--text-muted); }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .sep {
+      width: 1px;
+      height: 14px;
+      background: var(--border);
+    }
+
+    /* ── Issue List ── */
+    .issue-list {
+      padding: 6px 0;
+    }
+
+    .issue-item {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .issue-item:hover { background: var(--bg-surface); }
+    .issue-item:last-child { border-bottom: none; }
+
+    .issue-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .kind-tag {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 1px 4px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .kind-tag.fill { background: rgba(74,124,255,0.15); color: var(--accent); }
+    .kind-tag.stroke { background: rgba(245,166,35,0.15); color: var(--warning); }
+
+    .node-name {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .issue-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .color-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .chip-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+
+    .chip-hex {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .node-path {
+      font-size: 9px;
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .closest-token {
+      font-size: 9px;
+      color: var(--text-dim);
+      margin-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .closest-token .token-name {
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-size: 9px;
+    }
+
+    .closest-token .dist {
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="5" cy="5" r="3" stroke="white" stroke-width="1.5"/>
+            <circle cx="5" cy="5" r="1" fill="white"/>
+          </svg>
+        </div>
+        <span class="logo-name">Token Checker</span>
+      </div>
+      <span class="badge">MVP</span>
+    </div>
+  </div>
+
+  <!-- Token Config -->
+  <div class="token-section">
+    <div class="section-label">토큰 정의 (JSON)</div>
+    <div class="token-editor">
+      <textarea id="token-input" spellcheck="false"></textarea>
+    </div>
+    <div class="token-error" id="token-error">유효하지 않은 JSON 형식입니다.</div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-scan" id="scan-btn">
+      <div class="spinner"></div>
+      <span class="btn-label">선택 영역 스캔</span>
+    </button>
+  </div>
+
+  <!-- Results -->
+  <div class="results-area" id="results-area">
+    <div class="state-box" id="idle-state">
+      <div class="icon">◎</div>
+      <div class="title">스캔 대기 중</div>
+      <div class="sub">프레임을 선택한 후 스캔 버튼을 눌러주세요.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── 기본 토큰 ─────────────────────────────────────────────────────────────
+  const DEFAULT_TOKENS = {
+    "text.brand.default": "#1A73E8",
+    "text.neutral.default": "#111111",
+    "text.neutral.subtle": "#666666",
+    "text.neutral.disabled": "#AAAAAA",
+    "text.danger.default": "#D93025",
+    "text.success.default": "#188038",
+    "bg.surface.default": "#FFFFFF",
+    "bg.surface.raised": "#F8F8F8",
+    "bg.surface.overlay": "#F2F2F2",
+    "bg.brand.default": "#1A73E8",
+    "bg.brand.subtle": "#E8F0FE",
+    "bg.danger.default": "#D93025",
+    "bg.danger.subtle": "#FCE8E6",
+    "bg.success.default": "#188038",
+    "bg.success.subtle": "#E6F4EA",
+    "border.neutral.default": "#E5E5E5",
+    "border.neutral.strong": "#CCCCCC",
+    "border.brand.default": "#1A73E8",
+    "border.danger.default": "#D93025"
+  };
+
+  const tokenInput = document.getElementById('token-input');
+  const tokenError = document.getElementById('token-error');
+  const scanBtn = document.getElementById('scan-btn');
+  const resultsArea = document.getElementById('results-area');
+
+  // ── 초기화 ────────────────────────────────────────────────────────────────
+  tokenInput.value = JSON.stringify(DEFAULT_TOKENS, null, 2);
+
+  // ── 토큰 검증 ─────────────────────────────────────────────────────────────
+  function parseTokens() {
+    try {
+      const tokens = JSON.parse(tokenInput.value);
+      tokenError.classList.remove('visible');
+      return tokens;
+    } catch (e) {
+      tokenError.classList.add('visible');
+      return null;
+    }
+  }
+
+  tokenInput.addEventListener('input', () => parseTokens());
+
+  // ── 스캔 버튼 ─────────────────────────────────────────────────────────────
+  scanBtn.addEventListener('click', () => {
+    const tokens = parseTokens();
+    if (!tokens) return;
+
+    scanBtn.classList.add('loading');
+    scanBtn.disabled = true;
+
+    parent.postMessage({ pluginMessage: { type: 'scan', tokens } }, '*');
+  });
+
+  // ── 메시지 수신 ───────────────────────────────────────────────────────────
+  window.onmessage = (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    scanBtn.classList.remove('loading');
+    scanBtn.disabled = false;
+
+    if (msg.type === 'scan-result') {
+      renderResults(msg);
+    }
+
+    if (msg.type === 'error') {
+      renderError(msg.message);
+    }
+  };
+
+  // ── 결과 렌더링 ───────────────────────────────────────────────────────────
+  function renderResults({ issues, totalScanned, selectionCount }) {
+    if (issues.length === 0) {
+      resultsArea.innerHTML = `
+        <div class="state-box success">
+          <div class="icon">✓</div>
+          <div class="title">모든 색상이 토큰을 사용하고 있습니다</div>
+          <div class="sub">${totalScanned}개 레이어 검사 완료 (${selectionCount}개 프레임)</div>
+        </div>
+      `;
+      return;
+    }
+
+    const html = `
+      <div class="summary">
+        <div class="summary-stat">
+          <span class="stat-num danger">${issues.length}</span>
+          <span class="stat-label">문제</span>
+        </div>
+        <div class="sep"></div>
+        <div class="summary-stat">
+          <span class="stat-num muted">${totalScanned}</span>
+          <span class="stat-label">검사한 레이어</span>
+        </div>
+        <div class="sep"></div>
+        <div class="summary-stat">
+          <span class="stat-num muted">${selectionCount}</span>
+          <span class="stat-label">선택된 프레임</span>
+        </div>
+      </div>
+      <div class="issue-list">
+        ${issues.map(issue => renderIssueItem(issue)).join('')}
+      </div>
+    `;
+
+    resultsArea.innerHTML = html;
+
+    // 클릭 이벤트 - 노드 선택
+    resultsArea.querySelectorAll('.issue-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const nodeId = el.dataset.nodeId;
+        parent.postMessage({ pluginMessage: { type: 'select-node', nodeId } }, '*');
+      });
+    });
+  }
+
+  function renderIssueItem(issue) {
+    const kindLabel = issue.kind === 'fill' ? 'FILL' : 'STROKE';
+    const kindClass = issue.kind;
+    const alpha = issue.alpha < 100 ? ` / ${issue.alpha}%` : '';
+
+    let closestHtml = '';
+    if (issue.closestToken) {
+      closestHtml = `
+        <div class="closest-token">
+          <span>유사 토큰:</span>
+          <span class="token-name">${issue.closestToken.name}</span>
+          <span class="dist">(거리 ${issue.closestToken.distance})</span>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="issue-item" data-node-id="${issue.nodeId}">
+        <div class="issue-header">
+          <span class="kind-tag ${kindClass}">${kindLabel}</span>
+          <span class="node-name">${escapeHtml(issue.nodeName)}</span>
+        </div>
+        <div class="issue-meta">
+          <div class="color-chip">
+            <div class="chip-swatch" style="background:${issue.hex}"></div>
+            <span class="chip-hex">${issue.hex}${alpha}</span>
+          </div>
+          <span class="node-path">${escapeHtml(issue.path)}</span>
+        </div>
+        ${closestHtml}
+      </div>
+    `;
+  }
+
+  function renderError(message) {
+    resultsArea.innerHTML = `
+      <div class="state-box error">
+        <div class="icon">⚠</div>
+        <div class="title">${escapeHtml(message)}</div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

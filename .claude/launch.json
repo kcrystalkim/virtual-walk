@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "walk-app",
+      "runtimeExecutable": "/Users/sujungkim/Library/Application Support/@inspector/app/runtimes/node/22.19.0/bin/node",
+      "runtimeArgs": ["/Users/sujungkim/Library/Application Support/@inspector/app/runtimes/node/22.19.0/lib/node_modules/npm/bin/npm-cli.js", "run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}
