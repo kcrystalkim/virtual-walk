@@ -192,18 +192,21 @@ function ChatPanel({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="relative flex items-center justify-between px-4 py-3 border-b border-white/10">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header — flex-shrink-0 so it never moves */}
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           <span className="text-white/70 text-xs">{onlineCount}명 산책 중</span>
         </div>
         <div className="text-white/40 text-xs">{location.emoji} {location.name}</div>
+      </div>
 
-        {/* Smokers — absolute 플로팅, 채팅 영역 높이에 영향 없음 */}
+      {/* Messages — relative so smokers can float inside */}
+      <div className="relative flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+        {/* Smokers — sticks to top of message area, overlays messages */}
         {Object.keys(smokers).length > 0 && (
-          <div className="absolute left-0 right-0 top-full z-10 px-4 py-2 bg-black/60 backdrop-blur-sm border-b border-white/10 pointer-events-none">
+          <div className="sticky top-0 z-10 -mx-3 -mt-2 mb-2 px-4 py-2 bg-black/70 backdrop-blur-sm border-b border-white/10 pointer-events-none">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs">🚬</span>
               {Object.entries(smokers).map(([nick, emoji]) => (
@@ -215,10 +218,6 @@ function ChatPanel({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
         {messages.length === 0 && (
           <div className="text-center text-white/30 text-xs py-8 leading-relaxed">
             아직 아무도 말하지 않았어요.<br />
