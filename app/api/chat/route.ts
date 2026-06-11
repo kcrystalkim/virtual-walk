@@ -12,97 +12,82 @@ interface Message {
 interface SmokeRank {
   nickname: string;
   locationEmoji: string;
-  count: number;
+  totalMs: number; // 누적 흡연 시간 (ms)
 }
 
-// In-memory store (resets on server restart — fine for a demo)
 const messages: Message[] = [];
 const clients = new Set<ReadableStreamDefaultController<Uint8Array>>();
-const smokers = new Map<string, string>(); // nickname → locationEmoji
-const smokeRanking = new Map<string, SmokeRank>(); // nickname → rank info
+const smokers = new Map<string, string>();           // nickname → locationEmoji
+const smokeStart = new Map<string, number>();         // nickname → 흡연 시작 timestamp
+const smokeRanking = new Map<string, SmokeRank>();   // nickname → 누적 시간
 
 function broadcast(payload: string) {
   const chunk = new TextEncoder().encode(`data: ${payload}\n\n`);
   for (const ctrl of clients) {
-    try {
-      ctrl.enqueue(chunk);
-    } catch {
-      clients.delete(ctrl);
-    }
+    try { ctrl.enqueue(chunk); } catch { clients.delete(ctrl); }
   }
 }
 
 function getRanking() {
   return [...smokeRanking.values()]
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => b.totalMs - a.totalMs)
     .slice(0, 10);
 }
 
 export async function GET() {
   let ctrl!: ReadableStreamDefaultController<Uint8Array>;
-
   const stream = new ReadableStream<Uint8Array>({
     start(c) {
       ctrl = c;
       clients.add(ctrl);
-      const init = JSON.stringify({
+      ctrl.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({
         type: "init",
         messages: messages.slice(-50),
         smokers: Object.fromEntries(smokers),
         ranking: getRanking(),
-      });
-      ctrl.enqueue(new TextEncoder().encode(`data: ${init}\n\n`));
+      })}\n\n`));
     },
-    cancel() {
-      clients.delete(ctrl);
-    },
+    cancel() { clients.delete(ctrl); },
   });
-
   return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
   });
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
-  // 흡연 상태 업데이트
   if (body.type === "smoke") {
     const { nickname, locationEmoji, smoking } = body;
+
     if (smoking) {
       smokers.set(nickname, locationEmoji);
-      // 랭킹 카운트 증가
-      const prev = smokeRanking.get(nickname);
-      smokeRanking.set(nickname, {
-        nickname,
-        locationEmoji,
-        count: (prev?.count ?? 0) + 1,
-      });
-      broadcast(JSON.stringify({
-        type: "smokers",
-        smokers: Object.fromEntries(smokers),
-        ranking: getRanking(),
-      }));
+      smokeStart.set(nickname, Date.now());
     } else {
       smokers.delete(nickname);
-      broadcast(JSON.stringify({
-        type: "smokers",
-        smokers: Object.fromEntries(smokers),
-        ranking: getRanking(),
-      }));
+      const start = smokeStart.get(nickname);
+      if (start) {
+        const duration = Date.now() - start;
+        smokeStart.delete(nickname);
+        const prev = smokeRanking.get(nickname);
+        smokeRanking.set(nickname, {
+          nickname,
+          locationEmoji,
+          totalMs: (prev?.totalMs ?? 0) + duration,
+        });
+      }
     }
+
+    broadcast(JSON.stringify({
+      type: "smokers",
+      smokers: Object.fromEntries(smokers),
+      ranking: getRanking(),
+    }));
     return Response.json({ ok: true });
   }
 
-  // 일반 메시지
   const { text, nickname, locationEmoji, locationName } = body as Omit<Message, "id" | "time">;
-  if (!text?.trim() || !nickname?.trim()) {
-    return Response.json({ error: "invalid" }, { status: 400 });
-  }
+  if (!text?.trim() || !nickname?.trim()) return Response.json({ error: "invalid" }, { status: 400 });
 
   const message: Message = {
     id: Date.now(),
@@ -112,10 +97,8 @@ export async function POST(req: NextRequest) {
     locationName,
     time: new Date().toISOString(),
   };
-
   messages.push(message);
   if (messages.length > 200) messages.shift();
-
   broadcast(JSON.stringify({ type: "message", message }));
   return Response.json({ ok: true });
 }

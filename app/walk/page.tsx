@@ -135,7 +135,7 @@ function ChatPanel({
   const [nickDraft, setNickDraft] = useState(nickname);
   const [onlineCount, setOnlineCount] = useState(1);
   const [smokers, setSmokers] = useState<Record<string, string>>({});
-  const [ranking, setRanking] = useState<{ nickname: string; locationEmoji: string; count: number }[]>([]);
+  const [ranking, setRanking] = useState<{ nickname: string; locationEmoji: string; totalMs: number }[]>([]);
   const [tab, setTab] = useState<"chat" | "ranking">("chat");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -240,9 +240,11 @@ function ChatPanel({
                   <span className="text-base">{r.locationEmoji}</span>
                   <span className="text-white/80 text-sm flex-1">{r.nickname}</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-white/50 text-xs">🚬</span>
-                    <span className={`text-sm font-bold ${i === 0 ? "text-yellow-400" : "text-white/70"}`}>{r.count}</span>
-                    <span className="text-white/30 text-xs">회</span>
+                    <span className={`text-sm font-bold ${i === 0 ? "text-yellow-400" : "text-white/70"}`}>
+                      {r.totalMs < 60000
+                        ? `${Math.floor(r.totalMs / 1000)}초`
+                        : `${Math.floor(r.totalMs / 60000)}분 ${Math.floor((r.totalMs % 60000) / 1000)}초`}
+                    </span>
                   </div>
                 </div>
               ))}
