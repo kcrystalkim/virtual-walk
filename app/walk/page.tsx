@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 
 const LOCATIONS = [
@@ -282,6 +282,117 @@ function ChatPanel({
   );
 }
 
+// ─── Cigarette ───────────────────────────────────────────────────────────────
+
+interface SmokeParticle {
+  id: number;
+  x: number;
+  size: number;
+  duration: number;
+  delay: number;
+  drift: number;
+}
+
+function Cigarette() {
+  const [lit, setLit] = useState(false);
+  const [particles, setParticles] = useState<SmokeParticle[]>([]);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const idRef = useRef(0);
+
+  const startSmoking = () => {
+    setLit(true);
+    intervalRef.current = setInterval(() => {
+      setParticles((prev) => [
+        ...prev.slice(-25),
+        {
+          id: idRef.current++,
+          x: (Math.random() - 0.5) * 10,
+          size: 12 + Math.random() * 20,
+          duration: 2.5 + Math.random() * 2,
+          delay: Math.random() * 0.3,
+          drift: (Math.random() - 0.5) * 60,
+        },
+      ]);
+    }, 120);
+  };
+
+  const stopSmoking = () => {
+    setLit(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  return (
+    <div className="relative flex flex-col items-center" style={{ width: 56 }}>
+      {/* Smoke particles */}
+      <div className="absolute pointer-events-none" style={{ bottom: 54, left: "50%", transform: "translateX(-50%)", width: 60, height: 200 }}>
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            className="absolute rounded-full"
+            style={{
+              width: p.size,
+              height: p.size,
+              bottom: 0,
+              left: `calc(50% + ${p.x}px)`,
+              transform: "translateX(-50%)",
+              background: "radial-gradient(circle, rgba(255,255,255,0.35) 0%, rgba(200,200,200,0.1) 60%, transparent 100%)",
+              animation: `smokeRise ${p.duration}s ease-out ${p.delay}s forwards`,
+              "--drift": `${p.drift}px`,
+            } as React.CSSProperties}
+          />
+        ))}
+      </div>
+
+      {/* Cigarette button */}
+      <button
+        onMouseDown={startSmoking}
+        onMouseUp={stopSmoking}
+        onMouseLeave={stopSmoking}
+        onTouchStart={startSmoking}
+        onTouchEnd={stopSmoking}
+        className="relative flex flex-col items-center gap-1 cursor-pointer select-none"
+        style={{ background: "none", border: "none", padding: 0 }}
+      >
+        {/* Cigarette SVG */}
+        <div className="relative" style={{ width: 48, height: 48 }}>
+          <svg viewBox="0 0 48 48" width="48" height="48">
+            {/* cigarette body */}
+            <rect x="6" y="21" width="28" height="6" rx="3" fill="#f5f0e0" />
+            {/* filter (orange tip) */}
+            <rect x="34" y="21" width="8" height="6" rx="2" fill="#e8843a" />
+            {/* paper line */}
+            <line x1="30" y1="21" x2="30" y2="27" stroke="#ccc" strokeWidth="0.8" />
+            {/* lit ember */}
+            {lit && (
+              <>
+                <circle cx="7" cy="24" r="3.5" fill="#ff6b1a" opacity="0.9">
+                  <animate attributeName="r" values="3;4;3" dur="0.4s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.9;1;0.9" dur="0.4s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="7" cy="24" r="5" fill="#ffaa44" opacity="0.4">
+                  <animate attributeName="r" values="4;6;4" dur="0.4s" repeatCount="indefinite" />
+                </circle>
+              </>
+            )}
+            {!lit && <circle cx="7" cy="24" r="2.5" fill="#aaa" opacity="0.5" />}
+          </svg>
+        </div>
+        <span className="text-white/40 text-xs">{lit ? "흡연 중 🚬" : "한 대 피워요"}</span>
+      </button>
+
+      <style>{`
+        @keyframes smokeRise {
+          0%   { transform: translateX(-50%) translateY(0)    scale(0.4); opacity: 0.6; }
+          40%  { opacity: 0.35; }
+          100% { transform: translateX(calc(-50% + var(--drift))) translateY(-180px) scale(2.5); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WalkPage() {
@@ -422,6 +533,11 @@ export default function WalkPage() {
             <ChatPanel nickname={nickname} location={selected} onNicknameChange={handleNicknameChange} />
           </div>
         )}
+      </div>
+
+      {/* Cigarette button */}
+      <div className="absolute z-50" style={{ right: chatOpen ? "340px" : "20px", bottom: "100px", transition: "right 0.3s" }}>
+        <Cigarette />
       </div>
 
       {/* Chat toggle button */}
