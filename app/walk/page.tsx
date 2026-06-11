@@ -194,28 +194,28 @@ function ChatPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="relative flex items-center justify-between px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           <span className="text-white/70 text-xs">{onlineCount}명 산책 중</span>
         </div>
         <div className="text-white/40 text-xs">{location.emoji} {location.name}</div>
-      </div>
 
-      {/* Smokers bar */}
-      {Object.keys(smokers).length > 0 && (
-        <div className="px-4 py-2 border-b border-white/10 bg-white/5">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs">🚬</span>
-            {Object.entries(smokers).map(([nick, emoji]) => (
-              <span key={nick} className="text-white/60 text-xs bg-white/10 rounded-full px-2 py-0.5">
-                {emoji} {nick}
-              </span>
-            ))}
-            <span className="text-white/30 text-xs">흡연 중...</span>
+        {/* Smokers — absolute 플로팅, 채팅 영역 높이에 영향 없음 */}
+        {Object.keys(smokers).length > 0 && (
+          <div className="absolute left-0 right-0 top-full z-10 px-4 py-2 bg-black/60 backdrop-blur-sm border-b border-white/10 pointer-events-none">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs">🚬</span>
+              {Object.entries(smokers).map(([nick, emoji]) => (
+                <span key={nick} className="text-white/60 text-xs bg-white/10 rounded-full px-2 py-0.5">
+                  {emoji} {nick}
+                </span>
+              ))}
+              <span className="text-white/30 text-xs">흡연 중...</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
