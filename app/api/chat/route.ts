@@ -9,10 +9,17 @@ interface Message {
   time: string;
 }
 
+interface SmokeRank {
+  nickname: string;
+  locationEmoji: string;
+  count: number;
+}
+
 // In-memory store (resets on server restart — fine for a demo)
 const messages: Message[] = [];
 const clients = new Set<ReadableStreamDefaultController<Uint8Array>>();
 const smokers = new Map<string, string>(); // nickname → locationEmoji
+const smokeRanking = new Map<string, SmokeRank>(); // nickname → rank info
 
 function broadcast(payload: string) {
   const chunk = new TextEncoder().encode(`data: ${payload}\n\n`);
@@ -23,6 +30,12 @@ function broadcast(payload: string) {
       clients.delete(ctrl);
     }
   }
+}
+
+function getRanking() {
+  return [...smokeRanking.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
 }
 
 export async function GET() {
@@ -36,6 +49,7 @@ export async function GET() {
         type: "init",
         messages: messages.slice(-50),
         smokers: Object.fromEntries(smokers),
+        ranking: getRanking(),
       });
       ctrl.enqueue(new TextEncoder().encode(`data: ${init}\n\n`));
     },
@@ -61,10 +75,26 @@ export async function POST(req: NextRequest) {
     const { nickname, locationEmoji, smoking } = body;
     if (smoking) {
       smokers.set(nickname, locationEmoji);
+      // 랭킹 카운트 증가
+      const prev = smokeRanking.get(nickname);
+      smokeRanking.set(nickname, {
+        nickname,
+        locationEmoji,
+        count: (prev?.count ?? 0) + 1,
+      });
+      broadcast(JSON.stringify({
+        type: "smokers",
+        smokers: Object.fromEntries(smokers),
+        ranking: getRanking(),
+      }));
     } else {
       smokers.delete(nickname);
+      broadcast(JSON.stringify({
+        type: "smokers",
+        smokers: Object.fromEntries(smokers),
+        ranking: getRanking(),
+      }));
     }
-    broadcast(JSON.stringify({ type: "smokers", smokers: Object.fromEntries(smokers) }));
     return Response.json({ ok: true });
   }
 

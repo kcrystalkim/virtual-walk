@@ -135,6 +135,8 @@ function ChatPanel({
   const [nickDraft, setNickDraft] = useState(nickname);
   const [onlineCount, setOnlineCount] = useState(1);
   const [smokers, setSmokers] = useState<Record<string, string>>({});
+  const [ranking, setRanking] = useState<{ nickname: string; locationEmoji: string; count: number }[]>([]);
+  const [tab, setTab] = useState<"chat" | "ranking">("chat");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -146,11 +148,13 @@ function ChatPanel({
       if (data.type === "init") {
         setMessages(data.messages);
         setSmokers(data.smokers ?? {});
+        setRanking(data.ranking ?? []);
         setOnlineCount(Math.max(1, data.messages.length > 0 ? Math.floor(Math.random() * 4) + 2 : 1));
       } else if (data.type === "message") {
         setMessages((prev) => [...prev, data.message]);
       } else if (data.type === "smokers") {
         setSmokers(data.smokers);
+        setRanking(data.ranking ?? []);
       }
     };
     return () => es.close();
@@ -193,17 +197,62 @@ function ChatPanel({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header — flex-shrink-0 so it never moves */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-white/70 text-xs">{onlineCount}명 산책 중</span>
+      {/* Header */}
+      <div className="flex-shrink-0 border-b border-white/10">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-white/70 text-xs">{onlineCount}명 산책 중</span>
+          </div>
+          <div className="text-white/40 text-xs">{location.emoji} {location.name}</div>
         </div>
-        <div className="text-white/40 text-xs">{location.emoji} {location.name}</div>
+        {/* Tabs */}
+        <div className="flex px-4 gap-4 pb-1">
+          <button
+            onClick={() => setTab("chat")}
+            className={`text-xs pb-1.5 border-b-2 transition-all ${tab === "chat" ? "border-white text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
+          >
+            💬 채팅
+          </button>
+          <button
+            onClick={() => setTab("ranking")}
+            className={`text-xs pb-1.5 border-b-2 transition-all ${tab === "ranking" ? "border-white text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
+          >
+            🚬 흡연 랭킹
+          </button>
+        </div>
       </div>
 
+      {/* Ranking tab */}
+      {tab === "ranking" && (
+        <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+          {ranking.length === 0 ? (
+            <div className="text-center text-white/30 text-xs py-12 leading-relaxed">
+              아직 아무도 안 피웠어요 🚭<br />담배 버튼을 눌러보세요!
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {ranking.map((r, i) => (
+                <div key={r.nickname} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${i === 0 ? "bg-yellow-500/15 border border-yellow-500/30" : i === 1 ? "bg-white/10 border border-white/15" : i === 2 ? "bg-orange-500/10 border border-orange-500/20" : "bg-white/5 border border-white/10"}`}>
+                  <span className="text-lg w-6 text-center">
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
+                  </span>
+                  <span className="text-base">{r.locationEmoji}</span>
+                  <span className="text-white/80 text-sm flex-1">{r.nickname}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/50 text-xs">🚬</span>
+                    <span className={`text-sm font-bold ${i === 0 ? "text-yellow-400" : "text-white/70"}`}>{r.count}</span>
+                    <span className="text-white/30 text-xs">회</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Messages — relative so smokers can float inside */}
-      <div className="relative flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
+      {tab === "chat" && <div className="relative flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
         {/* Smokers — sticks to top of message area, overlays messages */}
         {Object.keys(smokers).length > 0 && (
           <div className="sticky top-0 z-10 -mx-3 -mt-2 mb-2 px-4 py-2 bg-black/70 backdrop-blur-sm border-b border-white/10 pointer-events-none">
@@ -248,54 +297,56 @@ function ChatPanel({
           );
         })}
         <div ref={bottomRef} />
-      </div>
+      </div>}
 
-      {/* Nickname bar */}
-      <div className="px-3 pt-2 border-t border-white/10">
-        {editingNick ? (
-          <div className="flex gap-2 mb-2">
+      {/* Nickname bar + input — chat tab only */}
+      {tab === "chat" && (
+        <div className="flex-shrink-0 border-t border-white/10">
+          <div className="px-3 pt-2">
+            {editingNick ? (
+              <div className="flex gap-2 mb-2">
+                <input
+                  autoFocus
+                  value={nickDraft}
+                  onChange={(e) => setNickDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveNick()}
+                  maxLength={20}
+                  className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-xs outline-none placeholder:text-white/30 focus:border-white/40"
+                  placeholder="닉네임 입력..."
+                />
+                <button onClick={saveNick} className="text-white/70 hover:text-white text-xs px-3 py-1.5 bg-white/10 rounded-lg transition-colors">
+                  확인
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setNickDraft(nickname); setEditingNick(true); }}
+                className="text-white/40 hover:text-white/70 text-xs mb-2 transition-colors"
+              >
+                닉네임: {nickname} ✏️
+              </button>
+            )}
+          </div>
+          <div className="px-3 pb-3 flex gap-2">
             <input
-              autoFocus
-              value={nickDraft}
-              onChange={(e) => setNickDraft(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && saveNick()}
-              maxLength={20}
-              className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-xs outline-none placeholder:text-white/30 focus:border-white/40"
-              placeholder="닉네임 입력..."
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              maxLength={200}
+              placeholder="여기 경치 어때요? 🌿"
+              className="flex-1 bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 focus:border-white/35 focus:bg-white/15 transition-all"
             />
-            <button onClick={saveNick} className="text-white/70 hover:text-white text-xs px-3 py-1.5 bg-white/10 rounded-lg transition-colors">
-              확인
+            <button
+              onClick={send}
+              disabled={!input.trim()}
+              className="px-3 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition-all text-sm"
+            >
+              ↑
             </button>
           </div>
-        ) : (
-          <button
-            onClick={() => { setNickDraft(nickname); setEditingNick(true); }}
-            className="text-white/40 hover:text-white/70 text-xs mb-2 transition-colors"
-          >
-            닉네임: {nickname} ✏️
-          </button>
-        )}
-      </div>
-
-      {/* Input */}
-      <div className="px-3 pb-3 flex gap-2">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          maxLength={200}
-          placeholder="여기 경치 어때요? 🌿"
-          className="flex-1 bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 focus:border-white/35 focus:bg-white/15 transition-all"
-        />
-        <button
-          onClick={send}
-          disabled={!input.trim()}
-          className="px-3 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition-all text-sm"
-        >
-          ↑
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
