@@ -134,6 +134,7 @@ function ChatPanel({
   const [editingNick, setEditingNick] = useState(false);
   const [nickDraft, setNickDraft] = useState(nickname);
   const [onlineCount, setOnlineCount] = useState(1);
+  const [smokers, setSmokers] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -144,9 +145,12 @@ function ChatPanel({
       const data = JSON.parse(e.data);
       if (data.type === "init") {
         setMessages(data.messages);
+        setSmokers(data.smokers ?? {});
         setOnlineCount(Math.max(1, data.messages.length > 0 ? Math.floor(Math.random() * 4) + 2 : 1));
       } else if (data.type === "message") {
         setMessages((prev) => [...prev, data.message]);
+      } else if (data.type === "smokers") {
+        setSmokers(data.smokers);
       }
     };
     return () => es.close();
@@ -197,6 +201,21 @@ function ChatPanel({
         </div>
         <div className="text-white/40 text-xs">{location.emoji} {location.name}</div>
       </div>
+
+      {/* Smokers bar */}
+      {Object.keys(smokers).length > 0 && (
+        <div className="px-4 py-2 border-b border-white/10 bg-white/5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs">🚬</span>
+            {Object.entries(smokers).map(([nick, emoji]) => (
+              <span key={nick} className="text-white/60 text-xs bg-white/10 rounded-full px-2 py-0.5">
+                {emoji} {nick}
+              </span>
+            ))}
+            <span className="text-white/30 text-xs">흡연 중...</span>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}>
@@ -293,14 +312,23 @@ interface SmokeParticle {
   drift: number;
 }
 
-function Cigarette() {
+function Cigarette({ nickname, locationEmoji }: { nickname: string; locationEmoji: string }) {
   const [lit, setLit] = useState(false);
   const [particles, setParticles] = useState<SmokeParticle[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const idRef = useRef(0);
 
+  const broadcastSmoke = useCallback(async (smoking: boolean) => {
+    await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "smoke", nickname, locationEmoji, smoking }),
+    });
+  }, [nickname, locationEmoji]);
+
   const startSmoking = () => {
     setLit(true);
+    broadcastSmoke(true);
     intervalRef.current = setInterval(() => {
       setParticles((prev) => [
         ...prev.slice(-25),
@@ -318,6 +346,7 @@ function Cigarette() {
 
   const stopSmoking = () => {
     setLit(false);
+    broadcastSmoke(false);
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
@@ -537,7 +566,7 @@ export default function WalkPage() {
 
       {/* Cigarette button */}
       <div className="absolute z-50" style={{ right: chatOpen ? "340px" : "20px", bottom: "100px", transition: "right 0.3s" }}>
-        <Cigarette />
+        <Cigarette nickname={nickname} locationEmoji={selected.emoji} />
       </div>
 
       {/* Chat toggle button */}

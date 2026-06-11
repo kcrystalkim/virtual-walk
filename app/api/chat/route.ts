@@ -12,6 +12,7 @@ interface Message {
 // In-memory store (resets on server restart — fine for a demo)
 const messages: Message[] = [];
 const clients = new Set<ReadableStreamDefaultController<Uint8Array>>();
+const smokers = new Map<string, string>(); // nickname → locationEmoji
 
 function broadcast(payload: string) {
   const chunk = new TextEncoder().encode(`data: ${payload}\n\n`);
@@ -31,8 +32,11 @@ export async function GET() {
     start(c) {
       ctrl = c;
       clients.add(ctrl);
-      // Send message history on connect
-      const init = JSON.stringify({ type: "init", messages: messages.slice(-50) });
+      const init = JSON.stringify({
+        type: "init",
+        messages: messages.slice(-50),
+        smokers: Object.fromEntries(smokers),
+      });
       ctrl.enqueue(new TextEncoder().encode(`data: ${init}\n\n`));
     },
     cancel() {
@@ -51,8 +55,21 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { text, nickname, locationEmoji, locationName } = body as Omit<Message, "id" | "time">;
 
+  // 흡연 상태 업데이트
+  if (body.type === "smoke") {
+    const { nickname, locationEmoji, smoking } = body;
+    if (smoking) {
+      smokers.set(nickname, locationEmoji);
+    } else {
+      smokers.delete(nickname);
+    }
+    broadcast(JSON.stringify({ type: "smokers", smokers: Object.fromEntries(smokers) }));
+    return Response.json({ ok: true });
+  }
+
+  // 일반 메시지
+  const { text, nickname, locationEmoji, locationName } = body as Omit<Message, "id" | "time">;
   if (!text?.trim() || !nickname?.trim()) {
     return Response.json({ error: "invalid" }, { status: 400 });
   }
@@ -70,6 +87,5 @@ export async function POST(req: NextRequest) {
   if (messages.length > 200) messages.shift();
 
   broadcast(JSON.stringify({ type: "message", message }));
-
   return Response.json({ ok: true });
 }
