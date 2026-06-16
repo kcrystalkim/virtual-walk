@@ -136,6 +136,8 @@ const LOCATIONS = [
   },
 ];
 
+const TEAM = ["이다솜", "장한슬", "김수정", "이연재", "배희호", "최경희"];
+
 const WALK_MESSAGES = [
   "잠깐 숨 고르고 가요 🌿",
   "지금 이 순간, 여기에 있어요 ✨",
@@ -157,6 +159,12 @@ const WALK_MESSAGES = [
   "잠깐의 여유가 내일을 바꿔요 🌅",
   "당신은 충분히 잘 하고 있어요 🌟",
   "이 경치를 선물로 드려요 🎁",
+  // 팀원 이름 메시지 (4개 중 1개 확률로 섞임)
+  () => `${TEAM[Math.floor(Math.random() * TEAM.length)]}님, 오늘도 빛나고 있어요 ✨`,
+  () => `${TEAM[Math.floor(Math.random() * TEAM.length)]}님 덕분에 오늘도 좋은 하루예요 🌸`,
+  () => `${TEAM[Math.floor(Math.random() * TEAM.length)]}님, 수고 많으셨어요 🫶`,
+  () => `${TEAM[Math.floor(Math.random() * TEAM.length)]}님, 오늘 진짜 고생했어요 💙`,
+  () => `${TEAM[Math.floor(Math.random() * TEAM.length)]}님 있어서 팀이 든든해요 🌿`,
 ];
 
 const NICKNAME_ADJECTIVES = ["따뜻한", "고요한", "맑은", "포근한", "산뜻한", "잔잔한", "밝은"];
@@ -543,7 +551,8 @@ export default function WalkPage() {
   const [selected, setSelected] = useState(LOCATIONS[0]);
   const [prev, setPrev] = useState<(typeof LOCATIONS)[0] | null>(null);
   const [transitioning, setTransitioning] = useState(false);
-  const [walkMsg, setWalkMsg] = useState(WALK_MESSAGES[0]);
+  const resolveMsg = (m: typeof WALK_MESSAGES[0]) => typeof m === "function" ? m() : m;
+  const [walkMsg, setWalkMsg] = useState(() => resolveMsg(WALK_MESSAGES[0]));
   const [msgVisible, setMsgVisible] = useState(true);
   const [time, setTime] = useState("");
   const [showInfo, setShowInfo] = useState(true);
@@ -597,7 +606,7 @@ export default function WalkPage() {
       setMsgVisible(false);
       setTimeout(() => {
         i = (i + 1) % WALK_MESSAGES.length;
-        setWalkMsg(WALK_MESSAGES[i]);
+        setWalkMsg(resolveMsg(WALK_MESSAGES[i]));
         setMsgVisible(true);
       }, 600);
     }, 7000);
