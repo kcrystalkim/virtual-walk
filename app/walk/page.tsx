@@ -84,6 +84,66 @@ const LOCATIONS = [
     ambience: "✨ 고요한 설원과 춤추는 오로라",
     color: "from-purple-900/60",
   },
+  {
+    id: "waikiki",
+    name: "와이키키",
+    sub: "하와이, 미국",
+    emoji: "🌺",
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80",
+    description: "다이아몬드 헤드 아래 펼쳐진 황금빛 해변",
+    ambience: "🌊 알로하 정신과 훌라의 향기",
+    color: "from-yellow-800/60",
+  },
+  {
+    id: "centralpark",
+    name: "센트럴 파크",
+    sub: "뉴욕, 미국",
+    emoji: "🗽",
+    image: "https://images.unsplash.com/photo-1568515387631-8b650bbcdb90?auto=format&fit=crop&w=1920&q=80",
+    description: "빌딩숲 한가운데 자리한 843에이커의 도심 공원",
+    ambience: "🍂 낙엽 밟는 소리와 마차 지나는 소리",
+    color: "from-emerald-900/60",
+  },
+  {
+    id: "mallorca",
+    name: "마요르카",
+    sub: "스페인 지중해",
+    emoji: "🏖️",
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1920&q=80",
+    description: "크리스탈처럼 맑은 지중해의 숨겨진 보석",
+    ambience: "🌊 올리브 나무 아래 시에스타 시간",
+    color: "from-sky-800/60",
+  },
+  {
+    id: "sydney",
+    name: "시드니",
+    sub: "호주",
+    emoji: "🦘",
+    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=80",
+    description: "오페라 하우스와 하버 브리지, 반짝이는 항구 도시",
+    ambience: "☀️ 태평양의 바람과 활기찬 항구",
+    color: "from-blue-800/60",
+  },
+  {
+    id: "gwanghwamun",
+    name: "광화문",
+    sub: "서울, 한국",
+    emoji: "🏯",
+    image: "https://images.unsplash.com/photo-1517154421773-0529f29ea451?auto=format&fit=crop&w=1920&q=80",
+    description: "조선의 심장, 600년 역사가 살아숨쉬는 광장",
+    ambience: "🌸 북악산 바람과 고궁의 고요함",
+    color: "from-red-900/60",
+  },
+  {
+    id: "bondi",
+    name: "본다이 비치",
+    sub: "시드니, 호주",
+    emoji: "🏄",
+    image: "https://images.unsplash.com/photo-1523428096881-5bd79d043006?auto=format&fit=crop&w=1920&q=80",
+    description: "세계에서 가장 유명한 서핑 해변",
+    ambience: "🌊 파도 소리와 서퍼들의 함성",
+    color: "from-cyan-800/60",
+  },
 ];
 
 const WALK_MESSAGES = [
@@ -94,6 +154,19 @@ const WALK_MESSAGES = [
   "자연이 당신 곁에 있어요 🌍",
   "걱정은 잠시 내려두고 🍃",
   "깊게 숨을 들이마셔요... 😌",
+  "오늘 하루도 수고했어요 🫂",
+  "어깨에 힘 빼도 돼요 🙆",
+  "지금 이 순간만큼은 나를 위해 🌸",
+  "힘든 건 잠깐, 이 풍경은 영원해요 🏔️",
+  "커피 한 잔 하면서 쉬어가요 ☕",
+  "동료들도 다들 힘내고 있어요 💪",
+  "퇴근 후엔 진짜 나를 찾아요 🌙",
+  "바람이 느껴지나요? 🌬️",
+  "여기서만큼은 아무것도 안 해도 돼요 🛋️",
+  "마음이 가는 곳으로 떠나봐요 ✈️",
+  "잠깐의 여유가 내일을 바꿔요 🌅",
+  "당신은 충분히 잘 하고 있어요 🌟",
+  "이 경치를 선물로 드려요 🎁",
 ];
 
 const NICKNAME_ADJECTIVES = ["따뜻한", "고요한", "맑은", "포근한", "산뜻한", "잔잔한", "밝은"];
@@ -487,12 +560,32 @@ export default function WalkPage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [nickname, setNickname] = useState("");
   const [unread, setUnread] = useState(0);
+  const [weather, setWeather] = useState<{ temp: number; emoji: string } | null>(null);
   const prevMsgCountRef = useRef(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("walk-nickname") || randomNickname();
     setNickname(saved);
     localStorage.setItem("walk-nickname", saved);
+  }, []);
+
+  // 서울 날씨 — Open-Meteo (무료, API 키 불필요)
+  useEffect(() => {
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m,weathercode&timezone=Asia%2FSeoul")
+      .then((r) => r.json())
+      .then((d) => {
+        const temp = Math.round(d.current.temperature_2m);
+        const code = d.current.weathercode;
+        const emoji =
+          code === 0 ? "☀️" :
+          code <= 2 ? "🌤️" :
+          code <= 48 ? "☁️" :
+          code <= 67 ? "🌧️" :
+          code <= 77 ? "❄️" :
+          code <= 82 ? "🌦️" : "⛈️";
+        setWeather({ temp, emoji });
+      })
+      .catch(() => {});
   }, []);
 
   const handleNicknameChange = (n: string) => {
@@ -570,7 +663,15 @@ export default function WalkPage() {
       <div className="absolute top-0 left-0 right-0 z-30 flex items-start justify-between p-6">
         <div>
           <p className="text-white/40 text-xs tracking-[0.2em] uppercase mb-1">Virtual Walk</p>
-          <p className="text-white text-5xl font-extralight tabular-nums">{time}</p>
+          <div className="flex items-end gap-4">
+            <p className="text-white text-5xl font-extralight tabular-nums">{time}</p>
+            {weather && (
+              <div className="flex items-center gap-1.5 mb-1.5 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1 border border-white/15">
+                <span className="text-base">{weather.emoji}</span>
+                <span className="text-white/80 text-sm font-light">서울 {weather.temp}°</span>
+              </div>
+            )}
+          </div>
         </div>
         <button
           onClick={() => setShowInfo((v) => !v)}
@@ -594,12 +695,20 @@ export default function WalkPage() {
 
       {/* Center ambient message */}
       <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
-        <p
-          className="text-white/50 text-xl font-light text-center tracking-wide transition-all duration-500"
-          style={{ opacity: msgVisible ? 1 : 0, transform: msgVisible ? "translateY(0)" : "translateY(8px)" }}
+        <div
+          className="transition-all duration-500 px-6 py-3 rounded-2xl"
+          style={{
+            opacity: msgVisible ? 1 : 0,
+            transform: msgVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.97)",
+            background: "rgba(0,0,0,0.25)",
+            backdropFilter: "blur(8px)",
+            boxShadow: "0 0 40px rgba(0,0,0,0.2)",
+          }}
         >
-          {walkMsg}
-        </p>
+          <p className="text-white text-2xl font-medium text-center tracking-wide drop-shadow-lg">
+            {walkMsg}
+          </p>
+        </div>
       </div>
 
       {/* ── Chat panel ── */}
